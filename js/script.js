@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Inisialisasi Komponen
   initMenuCatalog();
   initNavbar();
+  initNavSpy();
+  initScrollEffects();
   initAddressCopy();
   initBackToTop();
 });
@@ -160,6 +162,9 @@ function renderMenuGrid() {
           alt="${escapeHtml(item.name)}" 
           class="menu-img"
           loading="lazy"
+          decoding="async"
+          width="400"
+          height="300"
           onerror="handleMenuImageError(this, '${escapeHtml(item.name)}')"
         >
       </div>
@@ -255,7 +260,7 @@ window.handleMenuImageError = function(imgElement, itemName) {
 
 /**
  * --------------------------------------------------------------------
- * 2. NAVBAR (STICKY, MOBILE DRAWER, & ACTIVE SPY)
+ * 2. NAVBAR (MOBILE DRAWER)
  * --------------------------------------------------------------------
  */
 function initNavbar() {
@@ -263,16 +268,6 @@ function initNavbar() {
   const toggleBtn = document.querySelector('.mobile-toggle');
   const navMenu = document.querySelector('.nav-menu');
   const navLinks = document.querySelectorAll('.nav-link');
-
-  // Sticky Effect pada Scroll
-  window.addEventListener('scroll', () => {
-    if (window.scrollY > 40) {
-      navbar?.classList.add('scrolled');
-    } else {
-      navbar?.classList.remove('scrolled');
-    }
-    updateActiveNavSpy();
-  }, { passive: true });
 
   // Toggle Menu Mobile
   if (toggleBtn && navMenu) {
@@ -302,28 +297,93 @@ function initNavbar() {
 }
 
 /**
- * Update link aktif di Navbar sesuai posisi scroll
+ * Update link aktif di Navbar menggunakan IntersectionObserver native (Zero Reflow)
+ * Berjalan asinkron tanpa membebani thread utama saat scroll mobile
  */
-function updateActiveNavSpy() {
+function initNavSpy() {
   const sections = document.querySelectorAll('section[id]');
-  const scrollPosition = window.scrollY + 120;
+  const navLinks = document.querySelectorAll('.nav-link');
+  if (!sections.length || !navLinks.length) return;
 
-  sections.forEach(section => {
-    const sectionTop = section.offsetTop;
-    const sectionHeight = section.offsetHeight;
-    const sectionId = section.getAttribute('id');
-    const correspondingLink = document.querySelector(`.nav-link[href="#${sectionId}"]`);
-
-    if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
-      document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-      correspondingLink?.classList.add('active');
+  const linkMap = new Map();
+  navLinks.forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && href.startsWith('#')) {
+      linkMap.set(href.slice(1), link);
     }
   });
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const sectionId = entry.target.getAttribute('id');
+          const targetLink = linkMap.get(sectionId);
+          if (targetLink) {
+            navLinks.forEach(l => l.classList.remove('active'));
+            targetLink.classList.add('active');
+          }
+        }
+      });
+    }, {
+      root: null,
+      rootMargin: '-20% 0px -65% 0px',
+      threshold: 0
+    });
+
+    sections.forEach(sec => observer.observe(sec));
+  }
 }
 
 /**
  * --------------------------------------------------------------------
- * 3. FITUR SALIN ALAMAT & TOAST NOTIFIKASI
+ * 3. EFEK SCROLL RINGAN & HEMAT SUMBER DAYA (rAF THROTTLED)
+ * --------------------------------------------------------------------
+ * Mengontrol kelas navbar 'scrolled' dan tombol 'back-to-top' dengan efisien.
+ * Menggunakan requestAnimationFrame dan dirty-checking untuk mencegah layout thrashing.
+ */
+function initScrollEffects() {
+  const navbar = document.querySelector('.navbar');
+  const backBtn = document.getElementById('back-to-top-btn');
+
+  let isTicking = false;
+  let isNavbarScrolled = false;
+  let isBackBtnVisible = false;
+
+  const onScroll = () => {
+    if (!isTicking) {
+      window.requestAnimationFrame(() => {
+        const y = window.scrollY;
+
+        // Sticky Navbar Effect (hanya mutasi DOM jika boolean berubah)
+        const shouldScroll = y > 40;
+        if (shouldScroll !== isNavbarScrolled) {
+          isNavbarScrolled = shouldScroll;
+          navbar?.classList.toggle('scrolled', isNavbarScrolled);
+        }
+
+        // Back to top Button (hanya mutasi DOM jika boolean berubah)
+        if (backBtn) {
+          const shouldShowBack = y > 450;
+          if (shouldShowBack !== isBackBtnVisible) {
+            isBackBtnVisible = shouldShowBack;
+            backBtn.classList.toggle('visible', isBackBtnVisible);
+          }
+        }
+
+        isTicking = false;
+      });
+      isTicking = true;
+    }
+  };
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+}
+
+/**
+ * --------------------------------------------------------------------
+ * 4. FITUR SALIN ALAMAT & TOAST NOTIFIKASI
  * --------------------------------------------------------------------
  */
 function initAddressCopy() {
@@ -371,20 +431,12 @@ function showToast(message) {
 
 /**
  * --------------------------------------------------------------------
- * 4. BACK TO TOP BUTTON
+ * 5. BACK TO TOP BUTTON CLICK
  * --------------------------------------------------------------------
  */
 function initBackToTop() {
   const backBtn = document.getElementById('back-to-top-btn');
   if (!backBtn) return;
-
-  window.addEventListener('scroll', () => {
-    if (window.scrollY > 450) {
-      backBtn.classList.add('visible');
-    } else {
-      backBtn.classList.remove('visible');
-    }
-  }, { passive: true });
 
   backBtn.addEventListener('click', () => {
     window.scrollTo({

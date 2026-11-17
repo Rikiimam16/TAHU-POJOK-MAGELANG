@@ -58,6 +58,7 @@ html {
   scroll-behavior: smooth;
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -65,7 +66,8 @@ body {
   background-color: var(--color-secondary);
   color: var(--color-text-main);
   line-height: 1.65;
-  overflow-x: hidden;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
 }
 
 img {
@@ -244,7 +246,9 @@ ul {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-border);
-  transition: all var(--transition-normal);
+  transition: background-color var(--transition-normal), box-shadow var(--transition-normal);
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .navbar.scrolled {
@@ -1512,6 +1516,13 @@ ul {
   flex-direction: column;
   align-items: flex-end;
   gap: 12px;
+  transform: translateZ(0);
+  will-change: transform;
+  pointer-events: none;
+}
+
+.floating-actions > * {
+  pointer-events: auto;
 }
 
 .floating-wa-btn {
@@ -1654,6 +1665,30 @@ ul {
 
 /* --- MOBILE DEVICES (<= 768px) --- */
 @media (max-width: 768px) {
+  /* Optimasi Scroll Mobile & Performa Rendering */
+  html, body {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  /* Kurangi beban komposit bayangan di mobile GPU */
+  :root {
+    --shadow-md: 0 3px 10px rgba(74, 44, 24, 0.08);
+    --shadow-lg: 0 6px 16px rgba(74, 44, 24, 0.1);
+    --shadow-xl: 0 10px 22px rgba(74, 44, 24, 0.12);
+  }
+
+  /* Content visibility: lewati kalkulasi paint untuk seksi di luar viewport */
+  .about-section,
+  .menu-section,
+  .visit-info-section,
+  .reviews-section,
+  .location-section,
+  .site-footer {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 700px;
+  }
+
   /* Layout & Container Padding */
   .container {
     padding-left: 16px;
@@ -1693,6 +1728,30 @@ ul {
   }
 
   /* Navbar & Mobile Drawer */
+  .navbar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: #FAF6F0;
+  }
+
+  .navbar.scrolled {
+    background-color: #FFFFFF;
+  }
+
+  /* Matikan filter blur berat pada mobile */
+  .hero-badge-pill,
+  .hero-stat-card,
+  .badge-since,
+  .hero-pill,
+  .rating-badge-highlight {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .hero-stat-card {
+    background: rgba(30, 15, 8, 0.88);
+  }
+
   .nav-container {
     height: 62px;
   }
@@ -1783,6 +1842,12 @@ ul {
   .hero-section {
     min-height: auto;
     padding: 50px 0 40px 0;
+    background-image: linear-gradient(
+      135deg,
+      rgba(25, 12, 5, 0.84) 0%,
+      rgba(45, 23, 10, 0.72) 50%,
+      rgba(25, 12, 5, 0.88) 100%
+    ), url('../assets/images/background-mobile.webp');
   }
 
   .hero-badge-pill {
@@ -2309,5 +2374,22 @@ ul {
 
   .rating-huge-num {
     font-size: 2.3rem;
+  }
+}
+
+/* --- OPTIMASI KHUSUS PERANGKAT TOUCH / LAYAR SENTUH --- */
+@media (hover: none) {
+  /* Hilangkan efek transform hover saat jempol menyentuh layar saat mulai scrolling */
+  .menu-card:hover,
+  .info-card:hover,
+  .review-card:hover,
+  .about-feature-item:hover,
+  .btn:hover,
+  .floating-wa-btn:hover {
+    transform: none !important;
+  }
+
+  .menu-card:hover .menu-img {
+    transform: none !important;
   }
 }
